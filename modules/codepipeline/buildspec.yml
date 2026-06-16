@@ -1,0 +1,59 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
+      - echo "Configuring CodeArtifact npm login..."
+      - aws codeartifact login --tool npm --domain $CA_DOMAIN --domain-owner $CA_DOMAIN_OWNER --repository npm-store --region $AWS_REGION
+      - echo "Pre-build phase complete."
+
+  build:
+    commands:
+      - echo "Installing dependencies via CodeArtifact..."
+      - cd app/backend && npm ci && cd ../..
+      - echo "Building Docker image..."
+      - docker build -t $ECR_REPO_URL:$IMAGE_TAG ./app/backend
+      - echo "Pushing image to ECR..."
+      - docker push $ECR_REPO_URL:$IMAGE_TAG
+      - echo "Build phase complete."
+
+  post_build:
+    commands:
+      - echo "Waiting for ECR image scan results..."
+      - sleep 60
+      - |
+        SCAN_STATUS=$(aws ecr describe-image-scan-findings \
+          --repository-name $ECR_REPO_NAME \
+          --image-id imageTag=$IMAGE_TAG \
+          --query 'imageScanStatus.status' \
+          --output text 2>/dev/null || echo "NOT_STARTED")
+        echo "Scan status: $SCAN_STATUS"
+      - |
+        HIGH=$(aws ecr describe-image-scan-findings \
+          --repository-name $ECR_REPO_NAME \
+          --image-id imageTag=$IMAGE_TAG \
+          --query 'imageScanFindings.findingSeverityCounts.HIGH' \
+          --output text 2>/dev/null || echo "None")
+        CRITICAL=$(aws ecr describe-image-scan-findings \
+          --repository-name $ECR_REPO_NAME \
+          --image-id imageTag=$IMAGE_TAG \
+          --query 'imageScanFindings.findingSeverityCounts.CRITICAL' \
+          --output text 2>/dev/null || echo "None")
+        echo "HIGH: $HIGH | CRITICAL: $CRITICAL"
+        if [ "$HIGH" != "None" ] && [ "$HIGH" != "0" ]; then
+          echo "BUILD FAILED: High vulnerabilities detected in Docker image."
+          exit 1
+        fi
+        if [ "$CRITICAL" != "None" ] && [ "$CRITICAL" != "0" ]; then
+          echo "BUILD FAILED: Critical vulnerabilities detected in Docker image."
+          exit 1
+        fi
+        echo "Security scan passed. Image is clean."
+      - echo "Writing imagedefinitions.json for ECS deploy..."
+      - printf '[{"name":"fincorp-backend","imageUri":"%s"}]' "$ECR_REPO_URL:$IMAGE_TAG" > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json

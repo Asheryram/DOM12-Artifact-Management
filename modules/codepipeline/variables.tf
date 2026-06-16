@@ -1,0 +1,14 @@
+variable "project_name" { type = string }
+variable "primary_region" { type = string }
+variable "ecr_repository_url" { type = string }
+variable "ecr_repo_name" { type = string }
+variable "app_image_tag" { type = string }
+variable "codebuild_role_arn" { type = string }
+variable "codepipeline_role_arn" { type = string }
+variable "codeartifact_domain" { type = string }
+variable "github_repo" { type = string }
+variable "github_branch" { type = string }
+variable "codestar_connection_arn" { type = string }
+variable "ecs_cluster_name" { type = string }
+variable "ecs_service_name" { type = string }
+variable "environment" { type = string }

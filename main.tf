@@ -79,6 +79,15 @@ module "rds_primary" {
   depends_on = [module.networking]
 }
 
+module "rds_dr" {
+  source       = "./modules/rds_dr"
+  providers    = { aws = aws.dr }
+  project_name = var.project_name
+  environment  = var.environment
+  db_name      = var.db_name
+  aws_region   = var.dr_region
+}
+
 module "backup" {
   source           = "./modules/backup"
   providers        = { aws.primary = aws.primary, aws.dr = aws.dr }

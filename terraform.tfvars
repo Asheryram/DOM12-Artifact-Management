@@ -4,7 +4,6 @@ dr_region             = "us-west-2"
 db_name               = "fincorpdb"
 ecr_repo_name         = "fincorp-app"
 github_branch         = "main"
-app_image_tag         = "latest"
 environment           = "lab"
 backup_retention_days = 35
 rds_instance_class    = "db.t3.micro"

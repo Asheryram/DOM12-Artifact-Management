@@ -61,11 +61,6 @@ variable "codestar_connection_arn" {
   description = "ARN of the CodeStar connection to GitHub"
 }
 
-variable "app_image_tag" {
-  type        = string
-  default     = "latest"
-  description = "Docker image tag"
-}
 
 variable "environment" {
   type        = string

@@ -7,6 +7,8 @@ phases:
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
       - echo "Configuring CodeArtifact npm login..."
       - aws codeartifact login --tool npm --domain $CA_DOMAIN --domain-owner $CA_DOMAIN_OWNER --repository npm-store --region $AWS_REGION
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:0:8}
+      - echo "Image tag (commit SHA short): $IMAGE_TAG"
       - echo "Pre-build phase complete."
 
   build:

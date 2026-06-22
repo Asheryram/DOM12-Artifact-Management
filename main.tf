@@ -15,13 +15,16 @@ module "networking" {
 }
 
 module "iam" {
-  source              = "./modules/iam"
-  providers           = { aws = aws.primary }
-  project_name        = var.project_name
-  environment         = var.environment
-  ecr_repository_arn  = module.ecr.repository_arn
-  codeartifact_domain = module.codeartifact.domain_name
-  pipeline_bucket_arn = module.codepipeline.pipeline_bucket_arn
+  source                  = "./modules/iam"
+  providers               = { aws = aws.primary }
+  project_name            = var.project_name
+  environment             = var.environment
+  ecr_repository_arn      = module.ecr.repository_arn
+  codeartifact_domain     = module.codeartifact.domain_name
+  codeartifact_domain_arn = module.codeartifact.domain_arn
+  npm_repository_arn      = module.codeartifact.npm_repository_arn
+  pip_repository_arn      = module.codeartifact.pip_repository_arn
+  pipeline_bucket_arn     = module.codepipeline.pipeline_bucket_arn
 }
 
 module "ecr" {
@@ -47,7 +50,6 @@ module "codepipeline" {
   primary_region          = var.primary_region
   ecr_repository_url      = module.ecr.repository_url
   ecr_repo_name           = var.ecr_repo_name
-  app_image_tag           = var.app_image_tag
   codebuild_role_arn      = module.iam.codebuild_role_arn
   codepipeline_role_arn   = module.iam.codepipeline_role_arn
   codeartifact_domain     = module.codeartifact.domain_name
@@ -92,8 +94,9 @@ module "app_backend" {
   providers              = { aws = aws.primary }
   project_name           = var.project_name
   environment            = var.environment
-  primary_region         = var.primary_region
-  ecr_image_url          = "${module.ecr.repository_url}:${var.app_image_tag}"
+  aws_region             = var.primary_region
+  # Bootstrap placeholder — CodePipeline replaces this with the commit-SHA tag on first deploy
+  ecr_image_url          = "${module.ecr.repository_url}:latest"
   db_secret_arn          = module.rds_primary.secret_arn
   ecs_task_exec_role_arn = module.iam.ecs_execution_role_arn
   ecs_task_role_arn      = module.iam.ecs_task_role_arn

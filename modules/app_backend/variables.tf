@@ -1,5 +1,9 @@
 variable "project_name" { type = string }
 variable "environment" { type = string }
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
 variable "ecr_image_url" { type = string }
 variable "db_secret_arn" { type = string }
 variable "ecs_task_exec_role_arn" { type = string }

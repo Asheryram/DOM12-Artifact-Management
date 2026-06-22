@@ -66,10 +66,6 @@ resource "aws_codebuild_project" "build_and_scan" {
       value = var.ecr_repo_name
     }
     environment_variable {
-      name  = "IMAGE_TAG"
-      value = var.app_image_tag
-    }
-    environment_variable {
       name  = "AWS_REGION"
       value = var.primary_region
     }

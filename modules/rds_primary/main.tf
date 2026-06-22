@@ -48,7 +48,7 @@ resource "aws_db_instance" "primary" {
 
 resource "aws_secretsmanager_secret" "db_credentials" {
   name                    = "${var.project_name}/db/credentials"
-  recovery_window_in_days = 0
+  recovery_window_in_days = 7
   tags                    = local.common_tags
 }
 

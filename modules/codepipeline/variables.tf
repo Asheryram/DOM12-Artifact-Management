@@ -2,7 +2,6 @@ variable "project_name" { type = string }
 variable "primary_region" { type = string }
 variable "ecr_repository_url" { type = string }
 variable "ecr_repo_name" { type = string }
-variable "app_image_tag" { type = string }
 variable "codebuild_role_arn" { type = string }
 variable "codepipeline_role_arn" { type = string }
 variable "codeartifact_domain" { type = string }

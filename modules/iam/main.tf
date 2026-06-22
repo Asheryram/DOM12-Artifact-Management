@@ -127,12 +127,20 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       },
       {
         Effect   = "Allow"
-        Action   = ["codestar-connections:UseConnection"]
+        Action   = ["codestar-connections:UseConnection", "codeconnections:UseConnection"]
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["ecs:DescribeServices", "ecs:DescribeTaskDefinition", "ecs:RegisterTaskDefinition", "ecs:UpdateService", "iam:PassRole"]
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeServices",
+          "ecs:DescribeClusters",
+          "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "ecs:UpdateService",
+          "ecs:TagResource",
+          "iam:PassRole"
+        ]
         Resource = "*"
       }
     ]

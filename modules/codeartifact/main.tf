@@ -12,7 +12,7 @@ locals {
 resource "aws_kms_key" "codeartifact" {
   description             = "KMS key for CodeArtifact domain encryption"
   deletion_window_in_days = 7
-  tags                    = local.common_tags
+  # tags omitted — DCE sandbox blocks kms:TagResource
 }
 
 resource "aws_codeartifact_domain" "main" {

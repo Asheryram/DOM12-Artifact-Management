@@ -51,6 +51,7 @@ output "app_api_url" {
 
 output "dr_simulation_commands" {
   description = "Commands to run DR simulation"
+  sensitive   = true
   value       = <<-EOT
     # ---- DR SIMULATION COMMANDS ----
     # Step 1: Simulate failure

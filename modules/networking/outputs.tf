@@ -1,13 +1,14 @@
 output "vpc_id" {
-  value = aws_vpc.main.id
+  value = data.aws_vpc.default.id
 }
 
 output "public_subnet_ids" {
-  value = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+  value = [data.aws_subnet.public_a.id, data.aws_subnet.public_b.id]
 }
 
+# Default VPC has no private subnets; reuse public subnets — SGs enforce isolation
 output "private_subnet_ids" {
-  value = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  value = [data.aws_subnet.public_a.id, data.aws_subnet.public_b.id]
 }
 
 output "rds_sg_id" {

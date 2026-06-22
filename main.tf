@@ -12,6 +12,7 @@ module "networking" {
   providers    = { aws = aws.primary }
   project_name = var.project_name
   environment  = var.environment
+  aws_region   = var.primary_region
 }
 
 module "iam" {
@@ -24,7 +25,6 @@ module "iam" {
   codeartifact_domain_arn = module.codeartifact.domain_arn
   npm_repository_arn      = module.codeartifact.npm_repository_arn
   pip_repository_arn      = module.codeartifact.pip_repository_arn
-  pipeline_bucket_arn     = module.codepipeline.pipeline_bucket_arn
 }
 
 module "ecr" {

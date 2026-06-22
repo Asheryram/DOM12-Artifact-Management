@@ -14,11 +14,10 @@ resource "aws_ecr_repository" "app" {
     scan_on_push = true
   }
 
+  # AES256 used instead of custom KMS — kms:CreateKey/TagResource are restricted in DCE sandbox
   encryption_configuration {
-    encryption_type = "KMS"
+    encryption_type = "AES256"
   }
-
-  tags = local.common_tags
 }
 
 resource "aws_ecr_lifecycle_policy" "cleanup" {

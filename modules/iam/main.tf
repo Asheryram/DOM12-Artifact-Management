@@ -81,12 +81,12 @@ resource "aws_iam_role_policy" "codebuild_ecr" {
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject", "s3:GetObjectVersion"]
-        Resource = "${var.pipeline_bucket_arn}/*"
+        Resource = "arn:aws:s3:::${var.project_name}-pipeline-artifacts-*/*"
       },
       {
         Effect   = "Allow"
         Action   = ["s3:ListBucket"]
-        Resource = var.pipeline_bucket_arn
+        Resource = "arn:aws:s3:::${var.project_name}-pipeline-artifacts-*"
       }
     ]
   })
@@ -120,7 +120,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject", "s3:GetBucketVersioning", "s3:ListBucket"]
-        Resource = [var.pipeline_bucket_arn, "${var.pipeline_bucket_arn}/*"]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-pipeline-artifacts-*",
+          "arn:aws:s3:::${var.project_name}-pipeline-artifacts-*/*"
+        ]
       },
       {
         Effect   = "Allow"

@@ -1,5 +1,3 @@
-data "aws_availability_zones" "available" { state = "available" }
-
 locals {
   common_tags = {
     Project     = var.project_name
@@ -19,14 +17,14 @@ resource "aws_vpc" "dr" {
 resource "aws_subnet" "dr_private_a" {
   vpc_id            = aws_vpc.dr.id
   cidr_block        = "10.1.11.0/24"
-  availability_zone = data.aws_availability_zones.available.names[0]
+  availability_zone = "${var.aws_region}a"
   tags = merge(local.common_tags, { Name = "${var.project_name}-dr-private-a" })
 }
 
 resource "aws_subnet" "dr_private_b" {
   vpc_id            = aws_vpc.dr.id
   cidr_block        = "10.1.12.0/24"
-  availability_zone = data.aws_availability_zones.available.names[1]
+  availability_zone = "${var.aws_region}b"
   tags = merge(local.common_tags, { Name = "${var.project_name}-dr-private-b" })
 }
 

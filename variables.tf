@@ -48,6 +48,11 @@ variable "ecr_repo_name" {
 variable "github_repo" {
   type        = string
   description = "GitHub repository in format owner/repo"
+
+  validation {
+    condition     = length(var.github_repo) >= 3 && can(regex(".+/.+", var.github_repo))
+    error_message = "github_repo must be in owner/repo format, e.g. Asheryram/DOM12-Artifact-Management."
+  }
 }
 
 variable "github_branch" {
@@ -59,6 +64,11 @@ variable "github_branch" {
 variable "codestar_connection_arn" {
   type        = string
   description = "ARN of the CodeStar connection to GitHub"
+
+  validation {
+    condition     = startswith(var.codestar_connection_arn, "arn:aws:codestar-connections:") || startswith(var.codestar_connection_arn, "arn:aws:codeconnections:")
+    error_message = "codestar_connection_arn must be a valid connection ARN (arn:aws:codestar-connections: or arn:aws:codeconnections:)."
+  }
 }
 
 

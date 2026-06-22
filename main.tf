@@ -49,7 +49,7 @@ module "codepipeline" {
   environment             = var.environment
   primary_region          = var.primary_region
   ecr_repository_url      = module.ecr.repository_url
-  ecr_repo_name           = var.ecr_repo_name
+  ecr_repo_name           = module.ecr.repository_name
   codebuild_role_arn      = module.iam.codebuild_role_arn
   codepipeline_role_arn   = module.iam.codepipeline_role_arn
   codeartifact_domain     = module.codeartifact.domain_name

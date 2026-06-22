@@ -32,26 +32,32 @@ phases:
           --repository-name $ECR_REPO_NAME \
           --image-id imageTag=$IMAGE_TAG \
           --query 'imageScanStatus.status' \
-          --output text 2>/dev/null || echo "NOT_STARTED")
+          --output text)
         echo "Scan status: $SCAN_STATUS"
+        if [ "$SCAN_STATUS" != "COMPLETE" ]; then
+          echo "BUILD FAILED: Scan did not complete (status: $SCAN_STATUS). Cannot verify image safety."
+          exit 1
+        fi
       - |
         HIGH=$(aws ecr describe-image-scan-findings \
           --repository-name $ECR_REPO_NAME \
           --image-id imageTag=$IMAGE_TAG \
           --query 'imageScanFindings.findingSeverityCounts.HIGH' \
-          --output text 2>/dev/null || echo "None")
+          --output text)
         CRITICAL=$(aws ecr describe-image-scan-findings \
           --repository-name $ECR_REPO_NAME \
           --image-id imageTag=$IMAGE_TAG \
           --query 'imageScanFindings.findingSeverityCounts.CRITICAL' \
-          --output text 2>/dev/null || echo "None")
+          --output text)
+        [ "$HIGH" = "None" ] && HIGH=0
+        [ "$CRITICAL" = "None" ] && CRITICAL=0
         echo "HIGH: $HIGH | CRITICAL: $CRITICAL"
-        if [ "$HIGH" != "None" ] && [ "$HIGH" != "0" ]; then
-          echo "BUILD FAILED: High vulnerabilities detected in Docker image."
+        if [ "$HIGH" -gt 0 ]; then
+          echo "BUILD FAILED: $HIGH HIGH vulnerabilities detected in Docker image."
           exit 1
         fi
-        if [ "$CRITICAL" != "None" ] && [ "$CRITICAL" != "0" ]; then
-          echo "BUILD FAILED: Critical vulnerabilities detected in Docker image."
+        if [ "$CRITICAL" -gt 0 ]; then
+          echo "BUILD FAILED: $CRITICAL CRITICAL vulnerabilities detected in Docker image."
           exit 1
         fi
         echo "Security scan passed. Image is clean."

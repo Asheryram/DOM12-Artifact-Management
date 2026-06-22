@@ -87,109 +87,22 @@ CloudFront to the ALB, so there are no mixed-content errors.
 
 ## Part 2 — Screenshot Walkthrough
 
-Start here if the pipeline has already run successfully. Take a screenshot at each numbered step.
+> See **[docs/walkthrough.md](docs/walkthrough.md)** for the full step-by-step screenshot guide — 21 numbered screenshots covering pipeline verification, app health, and the complete DR simulation.
 
-### Screenshot 1 — Pipeline: All Three Stages Green
+**Quick reference — screenshots to take after the pipeline goes green:**
 
-**Where:** AWS Console → CodePipeline → `fincorp-pipeline`
-
-**What you should see:**
-- Three stages in a column: **Source**, **Build_and_Scan**, **Deploy**
-- Each stage shows a green **Succeeded** badge
-- The timestamp shows the most recent commit
-
-> Screenshot tip: expand the **Build_and_Scan** stage to show the CodeBuild action name.
-
----
-
-### Screenshot 2 — ECR: Immutable Image with Scan Pass
-
-**Where:** AWS Console → ECR → Repositories → `fincorp-fincorp-app` → Images
-
-**What you should see:**
-- An image tagged with an 8-character commit SHA (e.g. `a1b2c3d4`)
-- **Tag immutability:** Immutable
-- **Scan status:** Complete (or the vulnerability counts column showing 0 HIGH / 0 CRITICAL)
-
-> Screenshot tip: click the tag to open the vulnerability detail view and screenshot the "No findings" or findings table.
-
----
-
-### Screenshot 3 — CodeArtifact: Packages Cached
-
-**Where:** AWS Console → CodeArtifact → Repositories → `npm-store` → Packages
-
-**What you should see:**
-- A list of npm packages fetched during `npm ci` (express, cors, helmet, mysql2, etc.)
-- Origin column shows **EXTERNAL** for packages fetched from npmjs.org
-
-> This demonstrates the dependency-confusion prevention control.
-
----
-
-### Screenshot 4 — App: Frontend Loading
-
-**Where:** Open `terraform output app_frontend_url` in your browser
-
-**What you should see:**
-- The FinCorp Expense & Income Tracker UI
-- Transaction list populated (or empty state if no transactions added yet)
-- No red errors in the browser console
-
-> Screenshot tip: open DevTools → Network tab, filter by `/api/`, refresh — show the
-> 200 OK responses for `/api/transactions` and `/api/summary`.
-
----
-
-### Screenshot 5 — Health Check API
-
-**Where:** Browser or curl
-
-```
-https://<cloudfront-domain>/api/health
-```
-
-**Expected JSON:**
-```json
-{ "success": true, "data": { "status": "healthy", "db": 1 } }
-```
-
-> This confirms ECS → RDS connectivity is working.
-
----
-
-### Screenshot 6 — ECS: Running Task
-
-**Where:** AWS Console → ECS → Clusters → `fincorp-cluster` → Services → `fincorp-service` → Tasks
-
-**What you should see:**
-- At least 1 task in **RUNNING** state
-- Last status: Running
-- The image URI matches the ECR tag from Screenshot 2
-
----
-
-### Screenshot 7 — CloudWatch Logs: Auto-Migration Output
-
-**Where:** AWS Console → CloudWatch → Log groups → `/ecs/fincorp-backend` → (latest stream)
-
-**What you should see** near the top of the stream:
-```
-Migrations complete.
-FinCorp API running on port 8080
-```
-
-> This proves the database schema was created automatically by the application on startup — no manual `mysql` client needed.
-
----
-
-### Screenshot 8 — S3: Frontend Assets Deployed by Pipeline
-
-**Where:** AWS Console → S3 → `fincorp-frontend-*` bucket → Objects
-
-**What you should see:**
-- `index.html`, `assets/` folder with hashed JS/CSS bundles
-- The `index.html` has a **Cache-Control: no-cache** metadata (set by buildspec)
+| # | Where | What it proves |
+|---|---|---|
+| 1 | CodePipeline → `fincorp-pipeline` | All 3 stages Succeeded |
+| 2 | CodeBuild log → "Security scan passed" | Vulnerability gate ran and cleared |
+| 3 | ECR → image with commit SHA + Immutable | Traceable, immutable artifact |
+| 4 | ECR → 0 HIGH / 0 CRITICAL CVEs | Image safe to deploy |
+| 5 | CodeArtifact → npm packages cached | Supply chain proxy working |
+| 6 | CloudWatch `/ecs/fincorp-backend` → "Migrations complete." | Auto-migration, no manual DB work |
+| 7 | App UI + DevTools 200 OK on `/api/*` | Frontend + API through CloudFront |
+| 8 | `/api/health` → `db: 1` | Full ECS → RDS connectivity |
+| 9 | ECS task → image URI with commit SHA | Running image tied to Git commit |
+| 10 | S3 bucket → `index.html` + `assets/` | Pipeline deployed the frontend build |
 
 ---
 
@@ -416,6 +329,7 @@ DOM12-Artifact-Management/
 
 ## Documentation
 
+- [Screenshot Walkthrough](docs/walkthrough.md) — step-by-step screenshot guide (pipeline through DR)
 - [Architecture](docs/architecture.md)
 - [DR Runbook](docs/dr_runbook.md)
 - [Pipeline Guide](docs/pipeline_guide.md)

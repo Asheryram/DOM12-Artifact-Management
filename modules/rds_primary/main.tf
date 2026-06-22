@@ -34,8 +34,7 @@ resource "aws_db_instance" "primary" {
   vpc_security_group_ids    = [var.rds_sg_id]
   multi_az                  = false
   publicly_accessible       = false
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "${var.project_name}-final-snapshot"
+  skip_final_snapshot       = true
   backup_retention_period   = 7
   backup_window             = "03:00-04:00"
   deletion_protection       = false

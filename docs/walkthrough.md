@@ -17,6 +17,7 @@ Alright, this is the payoff. One `git push` to main and look — three green sta
 Point out the **timestamp** on the most recent execution — it matches the last push. Then expand the `Build_and_Scan` stage so the CodeBuild action name is visible.
 
 **📸 Screenshot here.** This is your proof of automated delivery.
+> 💾 Save as: `01-pipeline-all-green.png`
 
 ---
 
@@ -33,6 +34,7 @@ Security scan passed. Image is clean.
 That line means Amazon Inspector scanned every layer of the Docker image and our gate checked the result. No HIGH vulnerabilities, no CRITICAL ones. If it had found any — the buildspec would have called `exit 1`, the pipeline would have turned red, and **nothing would have deployed**. The vulnerability gate is the reason the Deploy stage even ran.
 
 **📸 Screenshot the log** with "Security scan passed." visible.
+> 💾 Save as: `02-build-security-scan-passed.png`
 
 ---
 
@@ -45,6 +47,7 @@ Notice the tag on that image. It's not `latest` — it's the first 8 characters 
 Now look at the **Tag immutability** column: **Immutable**. That means nobody can push a different image under that same tag. Ever. If you need to roll back, that tag will always give you the exact original bytes.
 
 **📸 Screenshot** showing the SHA tag, the Immutable column, and the Scan status: Complete.
+> 💾 Save as: `03-ecr-immutable-sha-tag.png`
 
 ---
 
@@ -55,6 +58,7 @@ Now look at the **Tag immutability** column: **Immutable**. That means nobody ca
 Amazon Inspector scanned the image layers and here are the results. Zero HIGH, zero CRITICAL. This is two layers of defense working together: the scan at push time, and the gate in the buildspec that would have blocked deployment if this wasn't clean.
 
 **📸 Screenshot** showing 0 HIGH and 0 CRITICAL on the vulnerability detail page.
+> 💾 Save as: `04-ecr-zero-high-critical.png`
 
 ---
 
@@ -67,6 +71,7 @@ CodeBuild never went to npmjs.org directly. It fetched every dependency through 
 Why does this matter? **Dependency confusion attacks.** An attacker publishes a malicious package with the same name as an internal one. If your build hits the public registry first, you get the attacker's version. This proxy prevents that — our registry is ours.
 
 **📸 Screenshot** the package list with the EXTERNAL origin column visible.
+> 💾 Save as: `05-codeartifact-packages-cached.png`
 
 ---
 
@@ -86,6 +91,7 @@ FinCorp API running on port 8080
 The app read `init.sql` on startup and created the database schema itself. No one ran a migration script. No SSH into a bastion host, no manual `mysql` client. The container bootstrapped itself, using `CREATE TABLE IF NOT EXISTS` so it's safe to run on every restart.
 
 **📸 Screenshot** with "Migrations complete." and "FinCorp API running on port 8080" both visible.
+> 💾 Save as: `06-cloudwatch-migrations-complete.png`
 
 ---
 
@@ -97,8 +103,11 @@ The app loads. This is the React SPA, served from S3 through CloudFront.
 
 Now open **DevTools → Network tab**, filter by `/api`, and refresh the page. Look at those requests — `GET /api/transactions` and `GET /api/summary`, both returning **200 OK**. Notice the request URL starts with the CloudFront domain, not the ALB address. The frontend uses relative API paths, CloudFront proxies `/api/*` to the load balancer internally. No mixed-content errors, no CORS issues, HTTPS all the way through.
 
-**📸 Screenshot 1:** The app UI loaded in the browser.  
+**📸 Screenshot 1:** The app UI loaded in the browser.
+> 💾 Save as: `07a-app-ui-loaded.png`
+
 **📸 Screenshot 2:** DevTools Network tab showing 200 OK on `/api/transactions` and `/api/summary`.
+> 💾 Save as: `07b-devtools-api-200-ok.png`
 
 ---
 
@@ -118,6 +127,7 @@ What comes back is the entire architecture in one JSON response:
 `db: 1` comes from `SELECT 1 AS ok` running against RDS. Every hop in the diagram just answered — CloudFront, ALB, ECS Fargate, RDS MySQL. All green.
 
 **📸 Screenshot** the raw JSON in the browser.
+> 💾 Save as: `08-health-check-db-healthy.png`
 
 ---
 
@@ -128,6 +138,7 @@ What comes back is the entire architecture in one JSON response:
 Scroll to the **Containers** section and look at the **Image** field. The URI ends with the same 8-character commit SHA from Step 3. The container running right now is provably the same image that passed the vulnerability scan. You can trace from "it's running" all the way back to the Git commit, through the pipeline, through the scan.
 
 **📸 Screenshot** the task detail with the image URI showing the commit SHA.
+> 💾 Save as: `09-ecs-task-image-sha.png`
 
 ---
 
@@ -140,6 +151,7 @@ Scroll to the **Containers** section and look at the **Image** field. The URI en
 None of this was uploaded manually. The pipeline's `post_build` phase ran `aws s3 sync` and put it all here.
 
 **📸 Screenshot** the bucket object list with `index.html` and `assets/` visible.
+> 💾 Save as: `10-s3-frontend-assets.png`
 
 ---
 
@@ -161,8 +173,11 @@ The backup plan fires daily at 02:00 UTC — we're not waiting for that. Setting
 
 Hit **Create on-demand backup**, then go to **Jobs → Backup jobs** and watch it go from Running to Completed.
 
-**📸 Screenshot 1:** Backup job in **Running** state.  
+**📸 Screenshot 1:** Backup job in **Running** state.
+> 💾 Save as: `11a-backup-job-running.png`
+
 **📸 Screenshot 2:** Job showing **Completed**.
+> 💾 Save as: `11b-backup-job-completed.png`
 
 ---
 
@@ -173,6 +188,7 @@ Hit **Create on-demand backup**, then go to **Jobs → Backup jobs** and watch i
 The cross-region copy completed. That recovery point is now sitting in eu-central-1, completely independent of eu-west-1. If the primary region went dark right now, this is what we'd use to recover. Let's prove that.
 
 **📸 Screenshot** the recovery point showing **Completed** status in eu-central-1.
+> 💾 Save as: `12-dr-vault-recovery-point.png`
 
 ---
 
@@ -183,6 +199,7 @@ The cross-region copy completed. That recovery point is now sitting in eu-centra
 Confirm it returns `db: 1`. This is your baseline — the "before" state. Screenshot it because you'll compare it to what comes next.
 
 **📸 Screenshot** the healthy response.
+> 💾 Save as: `13-health-check-before-failure.png`
 
 ---
 
@@ -200,6 +217,7 @@ It asks you to type `CONFIRM`. Do it. The script calls `aws rds delete-db-instan
 Watch `fincorp-primary-db` flip to **Deleting**. This is the failure event.
 
 **📸 Screenshot** `fincorp-primary-db` in **Deleting** state.
+> 💾 Save as: `14-rds-primary-deleting.png`
 
 ---
 
@@ -216,6 +234,7 @@ Hit it again. The database is gone — what do you get?
 503. The failure is real. The app is actually down. Now we recover.
 
 **📸 Screenshot** the 503 / error response.
+> 💾 Save as: `15-app-503-down.png`
 
 ---
 
@@ -248,6 +267,7 @@ The script finds the latest recovery point in the DR vault and starts an RDS res
 Keep this terminal open — this is the live recovery in progress.
 
 **📸 Screenshot** the terminal mid-poll showing the restore is running.
+> 💾 Save as: `16-restore-script-polling.png`
 
 ---
 
@@ -266,6 +286,7 @@ Restored DB Endpoint: fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com
 Check the elapsed time. Anything under 1800 seconds is under the 30-minute RTO target. Copy the endpoint — you'll need it next.
 
 **📸 Screenshot** the terminal with "RECOVERY SUCCESSFUL" and the elapsed time.
+> 💾 Save as: `17-recovery-successful.png`
 
 ---
 
@@ -276,6 +297,7 @@ Check the elapsed time. Anything under 1800 seconds is under the 30-minute RTO t
 There it is — `fincorp-restored-db`, status **Available**. That database was restored from a cross-region backup into the DR VPC that Terraform pre-provisioned. The networking was already there waiting for exactly this.
 
 **📸 Screenshot** `fincorp-restored-db` in **Available** state in eu-central-1.
+> 💾 Save as: `18-rds-dr-available.png`
 
 ---
 
@@ -304,6 +326,7 @@ Connection OK
 Connection works. Schema is intact. 13 categories — same as before the failure. The RPO is met: the data survived.
 
 **📸 Screenshot** the CloudShell terminal with "Connection OK" and the category count.
+> 💾 Save as: `19-cloudshell-connection-ok.png`
 
 ---
 
@@ -333,6 +356,7 @@ ECS reads credentials from Secrets Manager on task start — not baked into the 
 Watch the new task spin up and reach **RUNNING**.
 
 **📸 Screenshot** the Tasks tab with the new task in **RUNNING** state.
+> 💾 Save as: `20-ecs-new-task-running.png`
 
 ---
 
@@ -348,36 +372,39 @@ Then open the main app URL. The transaction list loads. The categories are there
 
 The primary database was deleted, the app went down, we restored from a cross-region backup, and the app is fully operational from the DR database. Check the time from Step 14 to right now — that's your demonstrated RTO.
 
-**📸 Screenshot 1:** Health check returning `db: 1`.  
+**📸 Screenshot 1:** Health check returning `db: 1`.
+> 💾 Save as: `21a-health-check-recovered.png`
+
 **📸 Screenshot 2:** The app UI loading normally — recovery complete.
+> 💾 Save as: `21b-app-ui-recovered.png`
 
 ---
 
 ## Screenshot Checklist
 
-| # | What to capture | What it proves |
-|---|---|---|
-| 1 | CodePipeline — 3 green Succeeded stages | Automated end-to-end delivery |
-| 2 | CodeBuild log — "Security scan passed." | Vulnerability gate ran and cleared |
-| 3 | ECR — SHA tag + Immutable column | Traceable, tamper-proof artifact |
-| 4 | ECR — 0 HIGH / 0 CRITICAL vulnerabilities | Image is safe to deploy |
-| 5 | CodeArtifact — npm packages list | Supply chain proxy, no direct npmjs.org |
-| 6 | CloudWatch — "Migrations complete." | Container self-bootstrapped the DB schema |
-| 7a | App UI in browser | Frontend deployed by pipeline |
-| 7b | DevTools — 200 OK on `/api/transactions` | API reachable via CloudFront proxy |
-| 8 | `/api/health` → `db: 1` | Full stack: CloudFront → ECS → RDS |
-| 9 | ECS task — image URI with commit SHA | Running image tied to the scanned commit |
-| 10 | S3 bucket — `index.html` + `assets/` | Pipeline deployed the build output |
-| 11a | Backup job — Running | Cross-region backup in progress |
-| 11b | Backup job — Completed | Backup succeeded |
-| 12 | DR vault in eu-central-1 — recovery point Completed | Cross-region copy ready |
-| 13 | `/api/health` → `db: 1` (before failure) | Baseline — app healthy |
-| 14 | RDS — `fincorp-primary-db` Deleting | Primary failure simulated |
-| 15 | Browser — 503 on `/api/health` | App is actually down |
-| 16 | Terminal — restore polling (Running) | Recovery in progress |
-| 17 | Terminal — "RECOVERY SUCCESSFUL" + elapsed time | RTO demonstrated |
-| 18 | RDS eu-central-1 — `fincorp-restored-db` Available | DR database live |
-| 19 | CloudShell — "Connection OK" + 13 categories | Data integrity confirmed |
-| 20 | ECS — new task RUNNING | ECS repointed to DR database |
-| 21a | `/api/health` → `db: 1` (after recovery) | App fully recovered |
-| 21b | App UI loading normally | DR simulation complete |
+| # | Filename | What to capture | What it proves |
+|---|---|---|---|
+| 1 | `01-pipeline-all-green.png` | CodePipeline — 3 green Succeeded stages | Automated end-to-end delivery |
+| 2 | `02-build-security-scan-passed.png` | CodeBuild log — "Security scan passed." | Vulnerability gate ran and cleared |
+| 3 | `03-ecr-immutable-sha-tag.png` | ECR — SHA tag + Immutable column | Traceable, tamper-proof artifact |
+| 4 | `04-ecr-zero-high-critical.png` | ECR — 0 HIGH / 0 CRITICAL vulnerabilities | Image is safe to deploy |
+| 5 | `05-codeartifact-packages-cached.png` | CodeArtifact — npm packages list | Supply chain proxy, no direct npmjs.org |
+| 6 | `06-cloudwatch-migrations-complete.png` | CloudWatch — "Migrations complete." | Container self-bootstrapped the DB schema |
+| 7a | `07a-app-ui-loaded.png` | App UI in browser | Frontend deployed by pipeline |
+| 7b | `07b-devtools-api-200-ok.png` | DevTools — 200 OK on `/api/transactions` | API reachable via CloudFront proxy |
+| 8 | `08-health-check-db-healthy.png` | `/api/health` → `db: 1` | Full stack: CloudFront → ECS → RDS |
+| 9 | `09-ecs-task-image-sha.png` | ECS task — image URI with commit SHA | Running image tied to the scanned commit |
+| 10 | `10-s3-frontend-assets.png` | S3 bucket — `index.html` + `assets/` | Pipeline deployed the build output |
+| 11a | `11a-backup-job-running.png` | Backup job — Running | Cross-region backup in progress |
+| 11b | `11b-backup-job-completed.png` | Backup job — Completed | Backup succeeded |
+| 12 | `12-dr-vault-recovery-point.png` | DR vault in eu-central-1 — recovery point Completed | Cross-region copy ready |
+| 13 | `13-health-check-before-failure.png` | `/api/health` → `db: 1` (before failure) | Baseline — app healthy |
+| 14 | `14-rds-primary-deleting.png` | RDS — `fincorp-primary-db` Deleting | Primary failure simulated |
+| 15 | `15-app-503-down.png` | Browser — 503 on `/api/health` | App is actually down |
+| 16 | `16-restore-script-polling.png` | Terminal — restore polling (Running) | Recovery in progress |
+| 17 | `17-recovery-successful.png` | Terminal — "RECOVERY SUCCESSFUL" + elapsed time | RTO demonstrated |
+| 18 | `18-rds-dr-available.png` | RDS eu-central-1 — `fincorp-restored-db` Available | DR database live |
+| 19 | `19-cloudshell-connection-ok.png` | CloudShell — "Connection OK" + 13 categories | Data integrity confirmed |
+| 20 | `20-ecs-new-task-running.png` | ECS — new task RUNNING | ECS repointed to DR database |
+| 21a | `21a-health-check-recovered.png` | `/api/health` → `db: 1` (after recovery) | App fully recovered |
+| 21b | `21b-app-ui-recovered.png` | App UI loading normally | DR simulation complete |

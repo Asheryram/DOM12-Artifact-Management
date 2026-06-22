@@ -60,7 +60,6 @@ module "codepipeline" {
   ecs_service_name           = module.app_backend.ecs_service_name
   frontend_bucket            = module.app_frontend.s3_bucket_name
   cloudfront_distribution_id = module.app_frontend.distribution_id
-  alb_dns                    = module.app_backend.alb_dns_name
 
   depends_on = [module.iam, module.ecr, module.codeartifact, module.app_backend, module.app_frontend]
 }
@@ -120,6 +119,7 @@ module "app_frontend" {
   project_name = var.project_name
   environment  = var.environment
   api_endpoint = "http://${module.app_backend.alb_dns_name}"
+  alb_dns      = module.app_backend.alb_dns_name
 
   depends_on = [module.app_backend]
 }

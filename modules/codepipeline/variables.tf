@@ -13,4 +13,3 @@ variable "ecs_service_name" { type = string }
 variable "environment" { type = string }
 variable "frontend_bucket" { type = string }
 variable "cloudfront_distribution_id" { type = string }
-variable "alb_dns" { type = string }

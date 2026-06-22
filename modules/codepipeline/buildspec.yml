@@ -20,7 +20,7 @@ phases:
       - echo "Pushing image to ECR..."
       - docker push $ECR_REPO_URL:$IMAGE_TAG
       - echo "Building React frontend..."
-      - cd app/frontend && npm install && VITE_API_URL=$VITE_API_URL npm run build && cd ../..
+      - cd app/frontend && npm install && npm run build && cd ../..
       - echo "Build phase complete."
 
   post_build:

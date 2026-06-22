@@ -47,7 +47,7 @@ Two independent concerns wired to one app: a hardened build pipeline that guaran
 │                                                   ▼                                          │
 │  CloudFront ◄── S3 (React SPA)        ECS Fargate ◄── ALB (:80)                             │
 │                                                   │                                          │
-│                                             RDS MySQL ◄── Secrets Manager                   │
+│                                             RDS MySQL ◄── Secrets Manager (VPC endpoint)     │
 │                                                   │                                          │
 │                                            AWS Backup (daily 02:00 UTC)                     │
 │                                                   │  cross-region copy                       │
@@ -65,7 +65,7 @@ Two independent concerns wired to one app: a hardened build pipeline that guaran
 
 | Module | What it creates |
 |---|---|
-| `networking` | VPC, subnets, NAT gateway, 3 security groups |
+| `networking` | Custom VPC, public + private subnets, IGW, 4 security groups, 4 Interface + 1 Gateway VPC endpoints (replaces NAT gateway) |
 | `ecr` | ECR repo with IMMUTABLE tags and scan-on-push |
 | `codeartifact` | npm-store + pip-store proxying public registries |
 | `codepipeline` | CodePipeline + CodeBuild project + buildspec.yml |

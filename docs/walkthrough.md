@@ -1,305 +1,233 @@
-# FinCorp Lab — Screenshot Walkthrough
+# FinCorp Lab — Live Demo Walkthrough
 
-This guide walks through the entire lab in screenshot order. Start from Step 1 if the pipeline has just gone green. Each step tells you exactly where to navigate, what to look for, and what the screenshot proves.
-
----
-
-## PART A — Pipeline & Application Verification
-
-### Step 1 — CodePipeline: All Three Stages Green
-
-**Navigate to:** AWS Console → CodePipeline → Pipelines → `fincorp-pipeline`
-
-**What to look for:**
-- Three stages stacked vertically: **Source**, **Build_and_Scan**, **Deploy**
-- Each stage has a green **Succeeded** label
-- The most recent execution timestamp is visible
-
-**What this proves:** A single `git push` triggers the full pipeline — source pull, image build, vulnerability scan, frontend deploy, and ECS deploy — all automated.
-
-> Take the screenshot with all three stages visible and their green badges showing.
+> Start here once the pipeline has gone green. Each step tells you where to go, what to point out, and why it matters.
 
 ---
 
-### Step 2 — Build Stage Expanded: CodeBuild Detail
+## PART A — Pipeline & App Verification
 
-**Navigate to:** Same pipeline page → click **Details** inside the `Build_and_Scan` stage
+---
 
-**What to look for:**
-- CodeBuild project name: `fincorp-build`
-- Status: **Succeeded**
-- Duration shown (typically 4–7 minutes)
+### Step 1 — Pipeline: All Three Stages Green
 
-Click **View logs** to open CloudWatch. Look for these lines in the log output:
+**Go to:** AWS Console → CodePipeline → `fincorp-pipeline`
+
+Alright, this is the payoff. One `git push` to main and look — three green stages. Source, Build, Deploy. No one touched a server, no one ran a script manually. It's fully automated end-to-end.
+
+Point out the **timestamp** on the most recent execution — it matches the last push. Then expand the `Build_and_Scan` stage so the CodeBuild action name is visible.
+
+**📸 Screenshot here.** This is your proof of automated delivery.
+
+---
+
+### Step 2 — Build Stage: Security Gate Passed
+
+**Go to:** (still on the pipeline) → click **Details** inside `Build_and_Scan` → **View logs**
+
+Let's open the build and show what actually happened. Scroll through the log until you see this line:
+
 ```
 Security scan passed. Image is clean.
-Build phase complete.
 ```
 
-**What this proves:** The vulnerability gate ran and no HIGH or CRITICAL CVEs were found. Build only passed because the image is clean.
+That line means Amazon Inspector scanned every layer of the Docker image and our gate checked the result. No HIGH vulnerabilities, no CRITICAL ones. If it had found any — the buildspec would have called `exit 1`, the pipeline would have turned red, and **nothing would have deployed**. The vulnerability gate is the reason the Deploy stage even ran.
 
-> Screenshot the build log with "Security scan passed" visible.
-
----
-
-### Step 3 — ECR: Immutable Image Tag
-
-**Navigate to:** AWS Console → ECR → Repositories → `fincorp-fincorp-app` → Images tab
-
-**What to look for:**
-- An image with an 8-character commit SHA tag (e.g. `a1b2c3d4`) — not `latest`
-- **Tag immutability** column: **Immutable**
-- **Scan status** column: **Complete**
-- Push date matching your most recent pipeline run
-
-**What this proves:** Images are tagged with the exact Git commit SHA, making every deployment traceable to a specific code change. The `IMMUTABLE` tag prevents overwriting — a rollback always gets the exact original image.
-
-> Screenshot the images list with the tag, immutability, and scan status all visible.
+**📸 Screenshot the log** with "Security scan passed." visible.
 
 ---
 
-### Step 4 — ECR: Vulnerability Scan Results
+### Step 3 — ECR: The Image Tag Is a Receipt
 
-**Navigate to:** (still on ECR) → click the commit SHA image tag → **Vulnerabilities** tab
+**Go to:** ECR → Repositories → `fincorp-fincorp-app` → Images tab
 
-**What to look for:**
-- Scan status: **Complete**
-- **CRITICAL: 0, HIGH: 0** (or a low count of MEDIUM/LOW only)
-- If there are findings, the severity distribution chart shows no red/orange bars
+Notice the tag on that image. It's not `latest` — it's the first 8 characters of the Git commit SHA. Every image is permanently tied to the exact commit that built it.
 
-**What this proves:** Amazon Inspector scanned the Docker image layers. The buildspec gate would have failed the pipeline if HIGH or CRITICAL findings existed — so reaching Deploy proves the image is clean.
+Now look at the **Tag immutability** column: **Immutable**. That means nobody can push a different image under that same tag. Ever. If you need to roll back, that tag will always give you the exact original bytes.
 
-> Screenshot the vulnerability detail page showing 0 HIGH and 0 CRITICAL.
+**📸 Screenshot** showing the SHA tag, the Immutable column, and the Scan status: Complete.
 
 ---
 
-### Step 5 — CodeArtifact: npm Packages Cached
+### Step 4 — ECR: Zero HIGH, Zero CRITICAL
 
-**Navigate to:** AWS Console → CodeArtifact → Repositories → `fincorp-npm-store` → Packages
+**Go to:** (still in ECR) → click the SHA tag → **Vulnerabilities** tab
 
-**What to look for:**
-- A list of npm packages (express, cors, helmet, mysql2, dotenv, etc.)
-- Each package shows its version
-- Origin: **EXTERNAL** (fetched from npmjs.org and now cached here)
+Amazon Inspector scanned the image layers and here are the results. Zero HIGH, zero CRITICAL. This is two layers of defense working together: the scan at push time, and the gate in the buildspec that would have blocked deployment if this wasn't clean.
 
-**What this proves:** CodeBuild installed dependencies through CodeArtifact acting as a caching proxy. The packages are now stored in your account — future builds won't depend on npmjs.org availability, and you have a full audit trail of every dependency version used.
-
-> Screenshot the package list with at least 5–6 packages visible.
+**📸 Screenshot** showing 0 HIGH and 0 CRITICAL on the vulnerability detail page.
 
 ---
 
-### Step 6 — CloudWatch Logs: Auto-Migration Confirmation
+### Step 5 — CodeArtifact: Packages Came From Here, Not npm
 
-**Navigate to:** AWS Console → CloudWatch → Log groups → `/ecs/fincorp-backend`
+**Go to:** CodeArtifact → Repositories → `fincorp-npm-store` → Packages
 
-Click the **most recent log stream** (named like `ecs/fincorp-backend/TASK-ID`).
+CodeBuild never went to npmjs.org directly. It fetched every dependency through this private proxy. These packages — express, helmet, mysql2, dotenv — they're all cached here in our account now.
 
-**What to look for near the top of the stream:**
+Why does this matter? **Dependency confusion attacks.** An attacker publishes a malicious package with the same name as an internal one. If your build hits the public registry first, you get the attacker's version. This proxy prevents that — our registry is ours.
+
+**📸 Screenshot** the package list with the EXTERNAL origin column visible.
+
+---
+
+### Step 6 — CloudWatch: The DB Migrated Itself
+
+**Go to:** CloudWatch → Log groups → `/ecs/fincorp-backend` → click the most recent log stream
+
+> **Note (Git Bash):** Prefix any CLI command touching `/ecs/...` paths with `MSYS_NO_PATHCONV=1`.
+
+Look at the very top of the stream:
+
 ```
 Migrations complete.
 FinCorp API running on port 8080
 ```
 
-**What this proves:** The backend ran `init.sql` on startup using `CREATE TABLE IF NOT EXISTS`, creating the database schema automatically — no manual `mysql` client or migration command was needed. The ECS task is self-bootstrapping.
+The app read `init.sql` on startup and created the database schema itself. No one ran a migration script. No SSH into a bastion host, no manual `mysql` client. The container bootstrapped itself, using `CREATE TABLE IF NOT EXISTS` so it's safe to run on every restart.
 
-> Screenshot the log stream with "Migrations complete." and "FinCorp API running on port 8080" visible.
-
-> **Note if using Git Bash:** Prefix AWS CLI commands with `MSYS_NO_PATHCONV=1` when the path starts with `/`.
+**📸 Screenshot** with "Migrations complete." and "FinCorp API running on port 8080" both visible.
 
 ---
 
-### Step 7 — App: Frontend Loading in Browser
+### Step 7 — App: Frontend Served, API Proxied
 
-**Get the URL:**
-```bash
-terraform output app_frontend_url
-```
+**Get the URL:** `terraform output app_frontend_url` — open it in a browser.
 
-Open the URL in your browser.
+The app loads. This is the React SPA, served from S3 through CloudFront.
 
-**What to look for:**
-- The FinCorp Expense & Income Tracker interface loads
-- No "FinCorp Expense & Income Tracker — Deploy the React app via CodePipeline" placeholder
-- The transaction list is visible (empty is fine — it means DB is connected and returned 0 rows)
+Now open **DevTools → Network tab**, filter by `/api`, and refresh the page. Look at those requests — `GET /api/transactions` and `GET /api/summary`, both returning **200 OK**. Notice the request URL starts with the CloudFront domain, not the ALB address. The frontend uses relative API paths, CloudFront proxies `/api/*` to the load balancer internally. No mixed-content errors, no CORS issues, HTTPS all the way through.
 
-Open **DevTools → Network tab**, filter by `api`, and refresh.
-
-**What to look for in the Network tab:**
-- `GET /api/transactions?limit=10` → **200 OK**
-- `GET /api/summary` → **200 OK**
-- Request URL starts with the CloudFront domain (not the ALB) — this confirms the `/api/*` proxy through CloudFront is working
-
-**What this proves:** The React frontend is served from S3 via CloudFront. API calls are proxied through CloudFront to the ALB over HTTPS — no mixed content errors.
-
-> Screenshot 1: the app UI with the transaction list visible.
-> Screenshot 2: DevTools Network tab with the 200 OK responses to `/api/transactions` and `/api/summary`.
+**📸 Screenshot 1:** The app UI loaded in the browser.  
+**📸 Screenshot 2:** DevTools Network tab showing 200 OK on `/api/transactions` and `/api/summary`.
 
 ---
 
-### Step 8 — Health Check: End-to-End Connectivity
+### Step 8 — Health Check: The Whole Stack Answers
 
 **Open in browser:**
 ```
 https://<your-cloudfront-domain>/api/health
 ```
 
-**Expected response:**
+What comes back is the entire architecture in one JSON response:
+
 ```json
-{
-  "success": true,
-  "data": {
-    "status": "healthy",
-    "db": 1
-  }
-}
+{ "success": true, "data": { "status": "healthy", "db": 1 } }
 ```
 
-**What this proves:** The full chain is working — CloudFront → ALB → ECS Fargate → RDS MySQL. The `db: 1` field comes from `SELECT 1 AS ok` running against the live database.
+`db: 1` comes from `SELECT 1 AS ok` running against RDS. Every hop in the diagram just answered — CloudFront, ALB, ECS Fargate, RDS MySQL. All green.
 
-> Screenshot the raw JSON response in the browser.
-
----
-
-### Step 9 — ECS: Running Task with Correct Image
-
-**Navigate to:** AWS Console → ECS → Clusters → `fincorp-cluster` → Services → `fincorp-service` → Tasks tab
-
-**What to look for:**
-- At least 1 task with status **RUNNING**
-- Click the task ID → scroll to **Containers** section → **Image** field
-- The image URI ends with the same 8-character commit SHA from Step 3
-
-**What this proves:** ECS is running exactly the image that passed the vulnerability scan. The image tag ties the running container back to the specific Git commit.
-
-> Screenshot the task detail showing the image URI with the commit SHA tag.
+**📸 Screenshot** the raw JSON in the browser.
 
 ---
 
-### Step 10 — S3: Frontend Assets Deployed by Pipeline
+### Step 9 — ECS Task: Running the Exact Scanned Image
 
-**Navigate to:** AWS Console → S3 → Buckets → `fincorp-frontend-*` → Objects
+**Go to:** ECS → Clusters → `fincorp-cluster` → Services → `fincorp-service` → Tasks tab → click the task ID
 
-**What to look for:**
-- `index.html` at the root
-- An `assets/` folder containing hashed JS and CSS filenames (e.g. `index-Ab3xK.js`)
-- Click `index.html` → **Properties** tab → **Metadata** → `Cache-Control: no-cache`
+Scroll to the **Containers** section and look at the **Image** field. The URI ends with the same 8-character commit SHA from Step 3. The container running right now is provably the same image that passed the vulnerability scan. You can trace from "it's running" all the way back to the Git commit, through the pipeline, through the scan.
 
-**What this proves:** The pipeline's `post_build` phase ran `aws s3 sync` to deploy the React build output. The `no-cache` header on `index.html` ensures users always get the latest version after a new deploy.
+**📸 Screenshot** the task detail with the image URI showing the commit SHA.
 
-> Screenshot the S3 bucket object list with `index.html` and `assets/` visible.
+---
+
+### Step 10 — S3: Pipeline Deployed the Frontend
+
+**Go to:** S3 → find the bucket named `fincorp-frontend-*` → Objects
+
+`index.html` is there. The `assets/` folder has files with hashed names — those are the JS and CSS bundles. Hashed filenames get cached aggressively by CloudFront. `index.html` gets `Cache-Control: no-cache`, so the browser always fetches it fresh. That's how you get aggressive caching without ever serving stale JavaScript.
+
+None of this was uploaded manually. The pipeline's `post_build` phase ran `aws s3 sync` and put it all here.
+
+**📸 Screenshot** the bucket object list with `index.html` and `assets/` visible.
 
 ---
 
 ## PART B — Disaster Recovery Simulation
 
-> **Time required:** 28–42 minutes. Start the on-demand backup first, then take the Part A screenshots while you wait.
+> **This section takes 28–42 minutes.** Kick off Step 11 first, then take the Part A screenshots while you wait for the backup to complete.
 
 ---
 
-### Step 11 — AWS Backup: On-Demand Backup Job
+### Step 11 — Trigger an On-Demand Backup
 
-**Navigate to:** AWS Console → AWS Backup → **My account** → **Create on-demand backup**
+**Go to:** AWS Backup → Protected resources → find `fincorp-primary-db` → **Create on-demand backup**
 
-Settings to use:
-- Resource type: **RDS**
-- Resource ID: `fincorp-primary-db`
+The backup plan fires daily at 02:00 UTC — we're not waiting for that. Settings:
+
 - Backup vault: `fincorp-backup-vault-primary`
 - IAM role: `fincorp-backup-role`
-- Enable **Copy to destination region**: vault `fincorp-backup-vault-dr`, region **eu-central-1**
+- **Enable Copy to destination** → vault `fincorp-backup-vault-dr`, region **eu-central-1**
 
-Click **Create on-demand backup**.
+Hit **Create on-demand backup**, then go to **Jobs → Backup jobs** and watch it go from Running to Completed.
 
-**Navigate to:** AWS Backup → **Jobs** → **Backup jobs** tab
-
-**What to look for:**
-- A new backup job with resource `fincorp-primary-db`
-- Status changes: `Created` → `Running` → `Completed`
-
-**What this proves:** AWS Backup is protecting the RDS instance and copying the recovery point cross-region to the DR vault.
-
-> Screenshot the backup job in **Running** state.
-> Screenshot again when it shows **Completed**.
+**📸 Screenshot 1:** Backup job in **Running** state.  
+**📸 Screenshot 2:** Job showing **Completed**.
 
 ---
 
-### Step 12 — DR Vault: Recovery Point Arrived in eu-central-1
+### Step 12 — DR Vault: Recovery Point Landed in eu-central-1
 
-**Navigate to:** AWS Console → **switch region to eu-central-1** → AWS Backup → Backup vaults → `fincorp-backup-vault-dr` → Recovery points tab
+**Switch region to eu-central-1** → AWS Backup → Backup vaults → `fincorp-backup-vault-dr` → Recovery points tab
 
-**What to look for:**
-- A recovery point with status **Completed**
-- Resource type: **RDS**
-- Creation date matches the backup from Step 11
+The cross-region copy completed. That recovery point is now sitting in eu-central-1, completely independent of eu-west-1. If the primary region went dark right now, this is what we'd use to recover. Let's prove that.
 
-**What this proves:** The cross-region copy succeeded. The recovery point is now available in the DR region and can be used to restore an RDS instance independently of the primary region.
-
-> Screenshot the recovery point list showing status **Completed** in eu-central-1.
+**📸 Screenshot** the recovery point showing **Completed** status in eu-central-1.
 
 ---
 
-### Step 13 — Confirm App Healthy Before Failure
+### Step 13 — Confirm the App Is Healthy Before the Failure
 
-**Open in browser:**
-```
-https://<your-cloudfront-domain>/api/health
-```
+**Open:** `https://<cloudfront-domain>/api/health`
 
-Confirm it still returns `{ "success": true, "data": { "status": "healthy", "db": 1 } }`.
+Confirm it returns `db: 1`. This is your baseline — the "before" state. Screenshot it because you'll compare it to what comes next.
 
-**What this proves:** Baseline — the app is healthy before the simulated failure.
-
-> Screenshot the health check returning 200 with `db: 1`.
+**📸 Screenshot** the healthy response.
 
 ---
 
-### Step 14 — Simulate Failure: Delete Primary RDS
+### Step 14 — Simulate the Failure
 
-Run in terminal (PowerShell or Git Bash with `MSYS_NO_PATHCONV=1`):
-
+**Run in terminal:**
 ```bash
 PRIMARY_REGION=eu-west-1 PROJECT_NAME=fincorp bash scripts/simulate_region_failure.sh
 ```
 
-Type `CONFIRM` when prompted.
+It asks you to type `CONFIRM`. Do it. The script calls `aws rds delete-db-instance --skip-final-snapshot` — no recovery from the primary side. The database is gone.
 
-**Navigate to:** AWS Console (eu-west-1) → RDS → Databases
+**Go to:** RDS console (eu-west-1) → Databases
 
-**What to look for:**
-- `fincorp-primary-db` with status **Deleting**
-- After 3–5 minutes: the instance disappears from the list
+Watch `fincorp-primary-db` flip to **Deleting**. This is the failure event.
 
-**What this proves:** The primary database is gone — simulating an unrecoverable regional failure.
-
-> Screenshot the RDS console showing `fincorp-primary-db` in **Deleting** state.
+**📸 Screenshot** `fincorp-primary-db` in **Deleting** state.
 
 ---
 
-### Step 15 — App Showing Failure
+### Step 15 — The App Is Down
 
-**Open in browser:**
+**Open:** `https://<cloudfront-domain>/api/health`
+
+Hit it again. The database is gone — what do you get?
+
+```json
+{ "success": false, "error": "Database unreachable" }
 ```
-https://<your-cloudfront-domain>/api/health
-```
 
-**What to look for:**
-- Response: `{ "success": false, "error": "Database unreachable" }` with HTTP 503
-- Or the browser shows a 5xx error
+503. The failure is real. The app is actually down. Now we recover.
 
-**What this proves:** The failure is real — the application is down because the database is gone.
-
-> Screenshot the 503 / error response in the browser.
+**📸 Screenshot** the 503 / error response.
 
 ---
 
-### Step 16 — Restore Script Running in Terminal
+### Step 16 — Start the Restore
 
-Get the required values:
+**Get the required values:**
 ```bash
 terraform output backup_role_arn
 terraform output dr_rds_sg_id
 ```
 
-Run the restore:
+**Run the restore:**
 ```bash
 PRIMARY_REGION=eu-west-1 \
 DR_REGION=eu-central-1 \
@@ -310,20 +238,23 @@ DB_NAME=fincorpdb \
 bash scripts/restore_from_backup.sh
 ```
 
-**What to look for in the terminal:**
-- `Starting restore job in eu-central-1...`
-- `Restore job started: XXXX`
-- Polling lines: `Status: RUNNING | Elapsed: 30s`, `60s`, `90s`...
+The script finds the latest recovery point in the DR vault and starts an RDS restore job in eu-central-1. You'll see it polling every 30 seconds:
 
-> Screenshot the terminal while it is polling — shows the restore is in progress.
+```
+[...] Status: RUNNING | Elapsed: 30s
+[...] Status: RUNNING | Elapsed: 60s
+```
+
+Keep this terminal open — this is the live recovery in progress.
+
+**📸 Screenshot** the terminal mid-poll showing the restore is running.
 
 ---
 
-### Step 17 — Recovery Successful: Terminal Output
+### Step 17 — Recovery Successful
 
-Wait 15–20 minutes for the restore to complete.
+Wait 15–20 minutes. When you see this — that's the moment:
 
-**What to look for in the terminal:**
 ```
 ======================================
  RECOVERY SUCCESSFUL in eu-central-1
@@ -332,33 +263,26 @@ Wait 15–20 minutes for the restore to complete.
 Restored DB Endpoint: fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com
 ```
 
-**What this proves:** RDS was fully restored from the cross-region backup within the RTO window.
+Check the elapsed time. Anything under 1800 seconds is under the 30-minute RTO target. Copy the endpoint — you'll need it next.
 
-> Screenshot the terminal showing "RECOVERY SUCCESSFUL" with the elapsed time and restored endpoint.
-
----
-
-### Step 18 — RDS Restored in eu-central-1
-
-**Navigate to:** AWS Console → **switch region to eu-central-1** → RDS → Databases
-
-**What to look for:**
-- A new instance named `fincorp-restored-db`
-- Status: **Available**
-- Engine: MySQL 8.0
-- Subnet group: `fincorp-dr-subnet-group`
-
-**What this proves:** The database is running in the DR region inside the pre-provisioned DR VPC, ready to accept connections.
-
-> Screenshot the RDS console in eu-central-1 showing `fincorp-restored-db` as **Available**.
+**📸 Screenshot** the terminal with "RECOVERY SUCCESSFUL" and the elapsed time.
 
 ---
 
-### Step 19 — Data Integrity: CloudShell Verification
+### Step 18 — RDS Is Live in eu-central-1
 
-**Navigate to:** AWS Console → **switch region to eu-central-1** → CloudShell (top bar icon)
+**Switch region to eu-central-1** → RDS → Databases
 
-Run in CloudShell:
+There it is — `fincorp-restored-db`, status **Available**. That database was restored from a cross-region backup into the DR VPC that Terraform pre-provisioned. The networking was already there waiting for exactly this.
+
+**📸 Screenshot** `fincorp-restored-db` in **Available** state in eu-central-1.
+
+---
+
+### Step 19 — Verify the Data Made It
+
+**Open CloudShell** (switch console to eu-central-1 first — no local MySQL client needed)
+
 ```bash
 mysql -h fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com \
       -u fincorp_admin \
@@ -367,11 +291,9 @@ mysql -h fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com \
       -e "SELECT 'Connection OK'; SELECT COUNT(*) AS categories FROM categories;"
 ```
 
-**What to look for:**
+Expected:
 ```
-+--------------+
-| Connection OK|
-+--------------+
+Connection OK
 +------------+
 | categories |
 +------------+
@@ -379,15 +301,15 @@ mysql -h fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com \
 +------------+
 ```
 
-**What this proves:** The restored database has the correct schema (13 categories) — data integrity is confirmed. The RPO is met: the backup captured the state before the failure.
+Connection works. Schema is intact. 13 categories — same as before the failure. The RPO is met: the data survived.
 
-> Screenshot the CloudShell terminal with "Connection OK" and the category count visible.
+**📸 Screenshot** the CloudShell terminal with "Connection OK" and the category count.
 
 ---
 
-### Step 20 — Update ECS and Restore the App
+### Step 20 — Point ECS at the DR Database
 
-Update Secrets Manager with the DR endpoint, then force a new deployment:
+Update Secrets Manager with the new host, then force a new ECS deployment:
 
 ```bash
 DR_ENDPOINT="fincorp-restored-db.xxxxxx.eu-central-1.rds.amazonaws.com"
@@ -404,63 +326,58 @@ aws ecs update-service \
   --region eu-west-1
 ```
 
-**Navigate to:** ECS → Clusters → `fincorp-cluster` → Services → `fincorp-service` → Tasks tab
+ECS reads credentials from Secrets Manager on task start — not baked into the image. The new task will connect to the DR database, migrations will run (they're idempotent), and it'll come up healthy.
 
-**What to look for:**
-- A new task spinning up alongside the old one
-- Old task drains and stops
-- New task status: **RUNNING**
+**Go to:** ECS → `fincorp-cluster` → `fincorp-service` → Tasks
 
-> Screenshot the ECS tasks tab showing the new task in **RUNNING** state.
+Watch the new task spin up and reach **RUNNING**.
+
+**📸 Screenshot** the Tasks tab with the new task in **RUNNING** state.
 
 ---
 
-### Step 21 — App Recovered: Final Confirmation
+### Step 21 — The App Is Back
 
-**Open in browser:**
-```
-https://<your-cloudfront-domain>/api/health
-```
+**Open:** `https://<cloudfront-domain>/api/health`
 
-**What to look for:**
 ```json
 { "success": true, "data": { "status": "healthy", "db": 1 } }
 ```
 
-Also open the main app URL and confirm the transactions/categories load normally.
+Then open the main app URL. The transaction list loads. The categories are there.
 
-**What this proves:** The full DR scenario is complete — primary region failed, database was restored from a cross-region backup in ~20 minutes, ECS was repointed, and the app is fully operational from the DR database.
+The primary database was deleted, the app went down, we restored from a cross-region backup, and the app is fully operational from the DR database. Check the time from Step 14 to right now — that's your demonstrated RTO.
 
-> Screenshot the health check showing `db: 1`.
-> Screenshot the app UI loading normally.
+**📸 Screenshot 1:** Health check returning `db: 1`.  
+**📸 Screenshot 2:** The app UI loading normally — recovery complete.
 
 ---
 
-## Summary: Screenshot Checklist
+## Screenshot Checklist
 
-| # | Screenshot | What it proves |
+| # | What to capture | What it proves |
 |---|---|---|
-| 1 | CodePipeline — all 3 stages green | Automated pipeline end-to-end |
-| 2 | CodeBuild log — "Security scan passed" | Vulnerability gate ran and passed |
-| 3 | ECR — image with commit SHA + Immutable tag | Traceable, immutable artifact |
-| 4 | ECR — 0 HIGH / 0 CRITICAL CVEs | Image is safe to deploy |
-| 5 | CodeArtifact — npm packages cached | Supply chain control (no direct npmjs.org) |
-| 6 | CloudWatch — "Migrations complete." | Auto-migration, no manual DB setup |
-| 7a | App UI loading in browser | Frontend deployed via pipeline |
-| 7b | DevTools — 200 OK on /api/transactions | API reachable through CloudFront proxy |
-| 8 | /api/health → `db: 1` | Full stack connectivity |
-| 9 | ECS task detail — image URI with commit SHA | Running image tied to the Git commit |
-| 10 | S3 bucket — index.html + assets/ | Pipeline deployed the frontend build |
-| 11a | Backup job — Running | Backup in progress |
+| 1 | CodePipeline — 3 green Succeeded stages | Automated end-to-end delivery |
+| 2 | CodeBuild log — "Security scan passed." | Vulnerability gate ran and cleared |
+| 3 | ECR — SHA tag + Immutable column | Traceable, tamper-proof artifact |
+| 4 | ECR — 0 HIGH / 0 CRITICAL vulnerabilities | Image is safe to deploy |
+| 5 | CodeArtifact — npm packages list | Supply chain proxy, no direct npmjs.org |
+| 6 | CloudWatch — "Migrations complete." | Container self-bootstrapped the DB schema |
+| 7a | App UI in browser | Frontend deployed by pipeline |
+| 7b | DevTools — 200 OK on `/api/transactions` | API reachable via CloudFront proxy |
+| 8 | `/api/health` → `db: 1` | Full stack: CloudFront → ECS → RDS |
+| 9 | ECS task — image URI with commit SHA | Running image tied to the scanned commit |
+| 10 | S3 bucket — `index.html` + `assets/` | Pipeline deployed the build output |
+| 11a | Backup job — Running | Cross-region backup in progress |
 | 11b | Backup job — Completed | Backup succeeded |
-| 12 | DR vault recovery point — Completed (eu-central-1) | Cross-region copy succeeded |
-| 13 | Health check — healthy (before failure) | Baseline confirmation |
-| 14 | RDS — fincorp-primary-db Deleting | Failure simulated |
-| 15 | Browser — 503 on /api/health | App is down (failure confirmed) |
-| 16 | Terminal — restore polling output | Restore in progress |
-| 17 | Terminal — "RECOVERY SUCCESSFUL" | RDS restored within RTO |
-| 18 | RDS (eu-central-1) — fincorp-restored-db Available | DR database live |
+| 12 | DR vault in eu-central-1 — recovery point Completed | Cross-region copy ready |
+| 13 | `/api/health` → `db: 1` (before failure) | Baseline — app healthy |
+| 14 | RDS — `fincorp-primary-db` Deleting | Primary failure simulated |
+| 15 | Browser — 503 on `/api/health` | App is actually down |
+| 16 | Terminal — restore polling (Running) | Recovery in progress |
+| 17 | Terminal — "RECOVERY SUCCESSFUL" + elapsed time | RTO demonstrated |
+| 18 | RDS eu-central-1 — `fincorp-restored-db` Available | DR database live |
 | 19 | CloudShell — "Connection OK" + 13 categories | Data integrity confirmed |
 | 20 | ECS — new task RUNNING | ECS repointed to DR database |
-| 21a | Health check — `db: 1` (post-recovery) | Full stack working from DR |
-| 21b | App UI loading normally | DR complete, app fully recovered |
+| 21a | `/api/health` → `db: 1` (after recovery) | App fully recovered |
+| 21b | App UI loading normally | DR simulation complete |

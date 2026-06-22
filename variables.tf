@@ -50,8 +50,8 @@ variable "github_repo" {
   description = "GitHub repository in format owner/repo"
 
   validation {
-    condition     = length(var.github_repo) >= 3 && can(regex(".+/.+", var.github_repo))
-    error_message = "github_repo must be in owner/repo format, e.g. Asheryram/DOM12-Artifact-Management."
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repo))
+    error_message = "github_repo must be in owner/repo format (e.g. Asheryram/DOM12-Artifact-Management) — not a full URL."
   }
 }
 

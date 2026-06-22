@@ -30,8 +30,23 @@ output "backup_plan_id" {
 }
 
 output "dr_vault_arn" {
-  description = "DR backup vault ARN in us-west-2"
+  description = "DR backup vault ARN in eu-central-1"
   value       = module.backup.dr_vault_arn
+}
+
+output "backup_role_arn" {
+  description = "IAM role ARN used by AWS Backup"
+  value       = module.iam.backup_role_arn
+}
+
+output "primary_db_arn" {
+  description = "Primary RDS instance ARN (needed to start on-demand backup)"
+  value       = module.rds_primary.db_arn
+}
+
+output "dr_rds_sg_id" {
+  description = "Security group ID for the DR RDS instance in eu-central-1"
+  value       = module.rds_dr.dr_rds_sg_id
 }
 
 output "app_alb_dns" {
@@ -50,23 +65,26 @@ output "app_api_url" {
 }
 
 output "dr_simulation_commands" {
-  description = "Commands to run DR simulation"
+  description = "Ready-to-run commands for the DR simulation"
   sensitive   = true
   value       = <<-EOT
     # ---- DR SIMULATION COMMANDS ----
-    # Step 1: Simulate failure
-    PROJECT_NAME=${var.project_name} ./scripts/simulate_region_failure.sh
+    # Step 1: Simulate primary region failure
+    PRIMARY_REGION=eu-west-1 PROJECT_NAME=${var.project_name} bash scripts/simulate_region_failure.sh
 
-    # Step 2: Restore in us-west-2
+    # Step 2: Restore in eu-central-1
+    PRIMARY_REGION=eu-west-1 \
+    DR_REGION=eu-central-1 \
     PROJECT_NAME=${var.project_name} \
     BACKUP_ROLE_ARN=${module.iam.backup_role_arn} \
-    DR_RDS_SG_ID=<dr-sg-id> \
+    DR_RDS_SG_ID=${module.rds_dr.dr_rds_sg_id} \
     DB_NAME=${var.db_name} \
-    ./scripts/restore_from_backup.sh
+    bash scripts/restore_from_backup.sh
 
-    # Step 3: Verify
+    # Step 3: Verify (run in CloudShell eu-central-1)
     DR_DB_ENDPOINT=<restored-endpoint> \
     DB_USERNAME=${var.db_username} \
-    ./scripts/verify_dr.sh
+    DB_PASS=<password> \
+    bash scripts/verify_dr.sh
   EOT
 }

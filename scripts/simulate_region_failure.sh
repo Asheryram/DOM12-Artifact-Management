@@ -1,16 +1,17 @@
 #!/bin/bash
-# FinCorp DR Lab - Simulate Region Failure
+# FinCorp DR Lab - Simulate Region Failure by deleting the primary RDS instance
 set -e
 
-DB_IDENTIFIER="${PROJECT_NAME:-fincorp}-primary-db"
-REGION="us-east-1"
+PROJECT_NAME="${PROJECT_NAME:-fincorp}"
+PRIMARY_REGION="${PRIMARY_REGION:-eu-west-1}"
+DB_IDENTIFIER="${PROJECT_NAME}-primary-db"
 
 echo "======================================"
 echo " FinCorp DR Simulation: Region Failure"
-echo " Target: $DB_IDENTIFIER in $REGION"
+echo " Target: $DB_IDENTIFIER in $PRIMARY_REGION"
 echo "======================================"
 echo ""
-echo "WARNING: This will DELETE the primary database."
+echo "WARNING: This will DELETE the primary database instance."
 read -p "Type 'CONFIRM' to proceed: " CONFIRM
 
 if [ "$CONFIRM" != "CONFIRM" ]; then
@@ -18,19 +19,19 @@ if [ "$CONFIRM" != "CONFIRM" ]; then
   exit 1
 fi
 
-echo "[$(date)] Initiating deletion of $DB_IDENTIFIER..."
+echo "[$(date)] Initiating deletion of $DB_IDENTIFIER in $PRIMARY_REGION..."
 
 aws rds delete-db-instance \
   --db-instance-identifier "$DB_IDENTIFIER" \
   --skip-final-snapshot \
-  --region "$REGION"
+  --region "$PRIMARY_REGION"
 
-echo "[$(date)] Deletion initiated. Waiting for instance to be removed..."
+echo "[$(date)] Deletion initiated. Waiting for instance to be removed (~3-5 minutes)..."
 
 aws rds wait db-instance-deleted \
   --db-instance-identifier "$DB_IDENTIFIER" \
-  --region "$REGION"
+  --region "$PRIMARY_REGION"
 
 echo "[$(date)] PRIMARY DATABASE DELETED. Region failure simulated."
 echo ""
-echo "Next step: Run ./scripts/restore_from_backup.sh to recover in us-west-2"
+echo "Next step: Run ./scripts/restore_from_backup.sh to recover in DR region."

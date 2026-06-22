@@ -1,21 +1,24 @@
 #!/bin/bash
-# FinCorp DR Lab - Restore from Cross-Region Backup
+# FinCorp DR Lab - Restore from Cross-Region Backup in DR region
 set -e
 
 PROJECT_NAME="${PROJECT_NAME:-fincorp}"
+PRIMARY_REGION="${PRIMARY_REGION:-eu-west-1}"
+DR_REGION="${DR_REGION:-eu-central-1}"
 DR_VAULT_NAME="${PROJECT_NAME}-backup-vault-dr"
-DR_REGION="us-west-2"
 RESTORE_DB_IDENTIFIER="${PROJECT_NAME}-restored-db"
 DB_SUBNET_GROUP="${PROJECT_NAME}-dr-subnet-group"
-RDS_SG_ID="${DR_RDS_SG_ID}"
-BACKUP_ROLE_ARN="${BACKUP_ROLE_ARN}"
+RDS_SG_ID="${DR_RDS_SG_ID:?ERROR: DR_RDS_SG_ID must be set}"
+BACKUP_ROLE_ARN="${BACKUP_ROLE_ARN:?ERROR: BACKUP_ROLE_ARN must be set}"
 DB_NAME="${DB_NAME:-fincorpdb}"
 
 echo "======================================"
-echo " FinCorp DR Recovery: us-west-2"
+echo " FinCorp DR Recovery"
+echo " Vault : $DR_VAULT_NAME ($DR_REGION)"
+echo " Target: $RESTORE_DB_IDENTIFIER"
 echo "======================================"
 
-echo "[$(date)] Finding latest recovery point in $DR_VAULT_NAME..."
+echo "[$(date)] Finding latest completed recovery point in $DR_VAULT_NAME..."
 
 RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
   --backup-vault-name "$DR_VAULT_NAME" \
@@ -23,8 +26,13 @@ RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
   --query 'RecoveryPoints | sort_by(@, &CreationDate) | [-1].RecoveryPointArn' \
   --output text)
 
-echo "[$(date)] Latest recovery point: $RECOVERY_POINT_ARN"
+if [ -z "$RECOVERY_POINT_ARN" ] || [ "$RECOVERY_POINT_ARN" = "None" ]; then
+  echo "ERROR: No recovery points found in $DR_VAULT_NAME."
+  echo "Trigger an on-demand backup first and wait for the cross-region copy to complete."
+  exit 1
+fi
 
+echo "[$(date)] Latest recovery point: $RECOVERY_POINT_ARN"
 echo "[$(date)] Starting restore job in $DR_REGION..."
 
 RESTORE_JOB_ID=$(aws backup start-restore-job \
@@ -43,7 +51,7 @@ RESTORE_JOB_ID=$(aws backup start-restore-job \
   --output text)
 
 echo "[$(date)] Restore job started: $RESTORE_JOB_ID"
-echo "[$(date)] Waiting for restore to complete (10-25 minutes)..."
+echo "[$(date)] Polling every 30 s (expect 15-20 minutes)..."
 START_TIME=$(date +%s)
 
 while true; do
@@ -60,11 +68,16 @@ while true; do
     echo ""
     echo "======================================"
     echo " RECOVERY SUCCESSFUL in $DR_REGION"
-    echo " Elapsed: ${ELAPSED}s"
+    echo " Elapsed: ${ELAPSED}s (~$(( ELAPSED / 60 )) min)"
     echo "======================================"
     break
   elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "ABORTED" ]; then
     echo "RESTORE FAILED with status: $STATUS"
+    aws backup describe-restore-job \
+      --restore-job-id "$RESTORE_JOB_ID" \
+      --region "$DR_REGION" \
+      --query 'StatusMessage' \
+      --output text
     exit 1
   fi
   sleep 30
@@ -78,4 +91,8 @@ ENDPOINT=$(aws rds describe-db-instances \
 
 echo ""
 echo "Restored DB Endpoint: $ENDPOINT"
-echo "Run: ./scripts/verify_dr.sh"
+echo ""
+echo "Next steps:"
+echo "  1. Update Secrets Manager with the new host: $ENDPOINT"
+echo "  2. Force a new ECS deployment: aws ecs update-service --cluster fincorp-cluster --service fincorp-service --force-new-deployment --region $PRIMARY_REGION"
+echo "  3. Verify: DR_DB_ENDPOINT=$ENDPOINT DB_USERNAME=<user> DB_PASS=<pass> bash scripts/verify_dr.sh"

@@ -87,6 +87,19 @@ resource "aws_iam_role_policy" "codebuild_ecr" {
         Effect   = "Allow"
         Action   = ["s3:ListBucket"]
         Resource = "arn:aws:s3:::${var.project_name}-pipeline-artifacts-*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:DeleteObject", "s3:GetObject", "s3:ListBucket"]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-frontend-*",
+          "arn:aws:s3:::${var.project_name}-frontend-*/*"
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "*"
       }
     ]
   })

@@ -13,12 +13,14 @@ phases:
 
   build:
     commands:
-      - echo "Installing dependencies via CodeArtifact..."
+      - echo "Installing backend dependencies via CodeArtifact..."
       - cd app/backend && npm ci && cd ../..
       - echo "Building Docker image..."
       - docker build -t $ECR_REPO_URL:$IMAGE_TAG ./app/backend
       - echo "Pushing image to ECR..."
       - docker push $ECR_REPO_URL:$IMAGE_TAG
+      - echo "Building React frontend..."
+      - cd app/frontend && npm install && VITE_API_URL=$VITE_API_URL npm run build && cd ../..
       - echo "Build phase complete."
 
   post_build:
@@ -53,6 +55,11 @@ phases:
           exit 1
         fi
         echo "Security scan passed. Image is clean."
+      - echo "Deploying frontend to S3..."
+      - aws s3 sync app/frontend/dist/ s3://$FRONTEND_BUCKET/ --delete --region $AWS_REGION
+      - aws s3 cp app/frontend/dist/index.html s3://$FRONTEND_BUCKET/index.html --cache-control "no-cache" --content-type "text/html" --region $AWS_REGION
+      - echo "Invalidating CloudFront cache..."
+      - aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
       - echo "Writing imagedefinitions.json for ECS deploy..."
       - printf '[{"name":"fincorp-backend","imageUri":"%s"}]' "$ECR_REPO_URL:$IMAGE_TAG" > $CODEBUILD_SRC_DIR/imagedefinitions.json
 

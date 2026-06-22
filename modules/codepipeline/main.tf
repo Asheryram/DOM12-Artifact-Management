@@ -77,6 +77,18 @@ resource "aws_codebuild_project" "build_and_scan" {
       name  = "CA_DOMAIN_OWNER"
       value = data.aws_caller_identity.current.account_id
     }
+    environment_variable {
+      name  = "FRONTEND_BUCKET"
+      value = var.frontend_bucket
+    }
+    environment_variable {
+      name  = "CLOUDFRONT_ID"
+      value = var.cloudfront_distribution_id
+    }
+    environment_variable {
+      name  = "VITE_API_URL"
+      value = "http://${var.alb_dns}"
+    }
   }
 
   source {

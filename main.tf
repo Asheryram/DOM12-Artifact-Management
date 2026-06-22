@@ -56,10 +56,13 @@ module "codepipeline" {
   github_repo             = var.github_repo
   github_branch           = var.github_branch
   codestar_connection_arn = var.codestar_connection_arn
-  ecs_cluster_name        = module.app_backend.ecs_cluster_name
-  ecs_service_name        = module.app_backend.ecs_service_name
+  ecs_cluster_name           = module.app_backend.ecs_cluster_name
+  ecs_service_name           = module.app_backend.ecs_service_name
+  frontend_bucket            = module.app_frontend.s3_bucket_name
+  cloudfront_distribution_id = module.app_frontend.distribution_id
+  alb_dns                    = module.app_backend.alb_dns_name
 
-  depends_on = [module.iam, module.ecr, module.codeartifact, module.app_backend]
+  depends_on = [module.iam, module.ecr, module.codeartifact, module.app_backend, module.app_frontend]
 }
 
 module "rds_primary" {

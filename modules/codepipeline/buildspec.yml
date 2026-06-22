@@ -3,10 +3,8 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo "Logging in to Amazon ECR (private)..."
+      - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URL
-      - echo "Logging in to Amazon ECR Public (to avoid Docker Hub rate limits)..."
-      - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
       - echo "Configuring CodeArtifact npm login..."
       - aws codeartifact login --tool npm --domain $CA_DOMAIN --domain-owner $CA_DOMAIN_OWNER --repository npm-store --region $AWS_REGION
       - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-8)

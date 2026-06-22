@@ -54,7 +54,7 @@ phases:
         fi
         echo "Security scan passed. Image is clean."
       - echo "Writing imagedefinitions.json for ECS deploy..."
-      - printf '[{"name":"fincorp-backend","imageUri":"%s"}]' "$ECR_REPO_URL:$IMAGE_TAG" > imagedefinitions.json
+      - printf '[{"name":"fincorp-backend","imageUri":"%s"}]' "$ECR_REPO_URL:$IMAGE_TAG" > $CODEBUILD_SRC_DIR/imagedefinitions.json
 
 artifacts:
   files:
